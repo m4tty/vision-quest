@@ -129,10 +129,6 @@ def keep_card(cnt):
 def find_squares(img, image_area):
   img = cv2.GaussianBlur(img, (5, 5), 0)
   allowable_area = image_area - 100000
-  #image_area = img.size
-#  image_width = img.width
-#  image_height = img.height
-  
   squares = []
   for gray in cv2.split(img):
     for thrs in xrange(0, 255, 26):
@@ -143,28 +139,7 @@ def find_squares(img, image_area):
         retval, bin = cv2.threshold(gray, thrs, 255, cv2.THRESH_BINARY)
       contours, hierarchy = cv2.findContours(bin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
       print('=========')
-      print(len(contours))
-
-
-      
-	    #       if hierarchy is None:
-	    # print "hierarchy is None"
-	    # return True
-	    #       else:
-	    #         h = hierarchy[0]
-	    #         for component in zip(contours, h):
-	    #           currentContour = component[0]
-	    #           contourArray = np.array([currentContour], dtype=np.int32)
-	    #           currentHierarchy = component[1]
-	    #           x,y,w,h = cv2.boundingRect(currentContour)
-	    #           if currentHierarchy[2] < 0:
-	    #             # these are the innermost child components
-	    #             cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),3)
-	    #           elif currentHierarchy[3] < 0:
-	    #             # these are the outermost parent components
-	    #             cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),3)
-
-      
+      print(len(contours))    
       for idx,cnt in enumerate(contours):
         cnt_len = cv2.arcLength(cnt, True)
         cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
@@ -174,24 +149,47 @@ def find_squares(img, image_area):
           max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
           if max_cos < 0.1:
             if current_size < allowable_area:
-              #x,y,w,h = cv2.boundingRect(cnt)
               if keep_card(cnt) and has_no_children(idx,hierarchy,cnt):
-                #print('YES. keeping this contour')
                 squares = add_contour(cnt,squares)
                 print(len(squares))
-                #squares.append(cnt)
-            # print("---------v")
-            #          print(current_size)
-            #          print(image_area)
-            #          print("---------^")
-  #return sorted(squares, key=cv2.contourArea,reverse=True)[:5]
   return squares
+
+def find_triangles(img, image_area):
+  img = cv2.GaussianBlur(img, (5, 5), 0)
+  allowable_area = image_area - 100000
+  squares = []
+  for gray in cv2.split(img):
+    for thrs in xrange(0, 255, 26):
+      if thrs == 0:
+        bin = cv2.Canny(gray, 0, 50, apertureSize=5)
+        bin = cv2.dilate(bin, None)
+      else:
+        retval, bin = cv2.threshold(gray, thrs, 255, cv2.THRESH_BINARY)
+      contours, hierarchy = cv2.findContours(bin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+      print('=========')
+      print(len(contours))    
+      for idx,cnt in enumerate(contours):
+        cnt_len = cv2.arcLength(cnt, True)
+        cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
+        current_size = cv2.contourArea(cnt)
+        if len(cnt) == 3 and current_size > 100 and cv2.isContourConvex(cnt):
+          #cnt = cnt.reshape(-1, 2)
+          #max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
+          #if max_cos < 0.1:
+          #  if current_size < allowable_area:
+          squares.append(cnt)
+  return squares
+
 
 
 def find_circles(img):
   img = cv2.medianBlur(img,5)
   circles = cv2.HoughCircles(img,cv2.cv.CV_HOUGH_GRADIENT,1,10,param1=100,param2=30,minRadius=5,maxRadius=20)
-  circles = np.uint16(np.around(circles))
+  if circles is None:
+    print 'no circles'
+  else:
+    print circles
+  #circles = np.uint16(np.around(circles))
   return circles
 
 
@@ -199,62 +197,27 @@ def add_contour(contour, contours):
   for cont in contours:
     print "checking for duplicates"
     if (overlaps(cont,contour)):
-      print "duplicate"
+      #print "duplicate"
       return contours
   
-  print "no match. appending a contour"
+  #print "no match. appending a contour"
   contours.append(contour)
   return contours
 
 def overlaps(contour1, contour2):	
-	
   contourArray1 = np.array([contour1], dtype=np.int32)
   contourArray2 = np.array([contour2], dtype=np.int32)
   x1,y1,w1,h1 = cv2.boundingRect(contourArray1)
-  x1right = x1+w1
-  x1left = x1
-  x1top = y1+h1
-  x1bottom = y1
   x2,y2,w2,h2 = cv2.boundingRect(contourArray2)
-  x2right = x2+w2
-  x2left = x2
-  x2top = y2+h2
-  x2bottom = y2
-
+  # two rectangles overlap (x-wise) if the distance to their centers is smaller than the average width.
   if (abs(x1+w1/2-x2-w2/2) >= (w1+w2)/2):
     return False
-  
   if (abs(y1+h1/2-y2-h2/2) >= (h1+h2)/2):
     return False
-
   return True
-	#   print "x1right:", x1right,",x1left:",x1left,",x1bottom:",x1bottom,",x1top:",x1top
-	#   print "x2right:", x2right,",x2left:",x2left,",x2bottom:",x2bottom,",x2top:",x2top
-	#   if (x1right > x2left or x1left < x2right or x1bottom > x2top or x1top < x2bottom):
-	# print "overlap"
-	# return True
-	#   else:
-	# return False
-	
-  #print (not separate)
-  #return (not separate)
-  #intersection = rect.intersect([r1,r2])
-  # if intersection is rect.empty:
-  #   return False
-  # else:
-  #   return True
-
-
-#   #print x1+w1 + " > " + x2 + " and " + x1 + " < " + x2+w2 + " and " + y1+h1 + " < " + y2 + " and " + y1 + " > " + y2+h2
-# 
-# # x1right: 599 ,x1left: 501 ,x1bottom: 142 ,x1top: 199
-# # x2right: 598 ,x2left: 502 ,x2bottom: 143 ,x2top: 198
-#   return 599 >= 598 and 501 <= 502 and 199 <= 198 and 
-#   return (x1right >= x2right and x1left <= x2left and x1top <= x2top and x1bottom >= x2bottom)
-#   return (x1right > x2left and x1left < x2right and x1top < x2bottom and x1bottom > x2top)
 
 #storage = cv.CreateMemStorage(0)
-delay = 5
+delay = 0
 max_num_rectangles = 4
 
 cam = cv2.VideoCapture(0)
@@ -276,7 +239,8 @@ gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 # Calculate the width and height of the image
 img_y = len(img)
 img_x = len(img[0])
-
+image_height = img_y
+image_half = img_y / 2
 print "Image is " + str(len(img)) + "x" + str(len(img[0]))
 
 while True:
@@ -285,56 +249,66 @@ while True:
   cv2.drawContours( img, squares, -1, (0, 255, 0), 3 )
   cv2.imshow('squares', img)
   
+  # for triangle in find_triangles(img, image_area):
+  #   #elem = np.array([triangle], dtype=np.int32)
+  #   #x,y,w,h = cv2.boundingRect(elem)
+  #   cv2.drawContours(img,[triangle],0,(0,255,0),-1)
+  #   print ("triangle - ")
+  #   print triangle
+
   for cnt in find_squares(img, image_area):
     elem = np.array([cnt], dtype=np.int32)
     x,y,w,h = cv2.boundingRect(elem)
     cv2.drawContours( img, [cnt], -1, (0, 255, 0), 3 )
     
+    isUpper = True
+    stateOrientation = "unknown"
+    if y > image_half:
+      stateOrientation = "lower"
+      print "upper!!!!"
+    else:
+      print "lower!!!!"
+      stateOrientation = "upper"
+
     cx,cy = x+w/2, y+h/2
     color = hsv[cy,cx,0]
     print "vvvvvvvvvvvv"
     print color
+    clrName = "unknown"
     if (color < 10 or color > 170):
       print('Red')
+      clrName = "red"
              #res.append([cx,cy,'R'])
     elif(50 < color < 70):
       print('Green')
+      clrName = "green"
              #res.append([cx,cy,'G'])
     elif(20 < color < 40):
       print('Yellow')
+      clrName = "yellow"
              #res.append([cx,cy,'Y'])
     elif(98 < color < 130):
       print('Blue')
+      clrName = "blue"
              #res.append([cx,cy,'B'])
     print "^^^^^^^^^"
     sub_card = img[y:y+h, x:x+w]
-    card_file_name = "cards/card_" + str(y) + ".jpg"
+    card_file_name = "cards/card_" + clrName + "_" + stateOrientation + ".jpg"
    # print(card_file_name)
     cv2.imshow('sub_cards',sub_card)
-    #cv2.imwrite(card_file_name, sub_card)
+    cv2.imwrite(card_file_name, sub_card)
 
 
-    #peri = cv2.arcLength(elem,True)
-    #approx = rectify(cv2.approxPolyDP(elem,0.02*peri,True))
-			    
-			    # box = np.int0(approx)
-			    # cv2.drawContours(im,[box],0,(255,255,0),6)
-			    # imx = cv2.resize(im,(1000,600))
-			    # cv2.imshow('a',imx)
-    
-    #h = np.array([ [0,0],[449,0],[449,449],[0,449] ],np.float32)
-    
-    #transform = cv2.getPerspectiveTransform(approx,h)
-    #warp = cv2.warpPerspective(img,transform,(450,450))
+    gray = cv2.cvtColor(sub_card,cv2.COLOR_BGR2GRAY)
+    circles = find_circles(gray)
+    if not circles is None:
+      for i in circles[0,:]:
+        print i
+        cv2.circle(sub_card,(i[0],i[1]),i[2],(0,255,0),1)  # draw the outer circle
+        #cv2.circle(cimg,(i[0],i[1]),2,(0,0,255),3)     # draw the center of the circle
 
-#    circles = find_circles(grey_square)
-#    cimg = cv2.cvtColor(grey_square,cv2.COLOR_RGB2GRAY)
-#    for i in circles[0,:]:
-#      cv2.circle(cimg,(i[0],i[1]),i[2],(0,255,0),1)  # draw the outer circle
-      #cv2.circle(cimg,(i[0],i[1]),2,(0,0,255),3)     # draw the center of the circle
-
-#    cv2.imshow('detected circles',cimg)
-    #  cv2.drawContours(im,contours,-1,(0,255,0),-1)
+      cv2.imshow('detected circles',sub_card)
+      #cv2.drawContours(img,contours,-1,(0,255,0),-1)
     
     # if len(approx)==5:
     #   print "pentagon"
