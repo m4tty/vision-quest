@@ -195,7 +195,7 @@ def find_circles(img):
 
 def add_contour(contour, contours):
   for cont in contours:
-    print "checking for duplicates"
+    #print "checking for duplicates"
     if (overlaps(cont,contour)):
       #print "duplicate"
       return contours
@@ -265,51 +265,83 @@ while True:
     stateOrientation = "unknown"
     if y > image_half:
       stateOrientation = "lower"
-      print "upper!!!!"
+    #  print "upper!!!!"
     else:
-      print "lower!!!!"
+    #  print "lower!!!!"
       stateOrientation = "upper"
 
     cx,cy = x+w/2, y+h/2
     color = hsv[cy,cx,0]
-    print "vvvvvvvvvvvv"
-    print color
+    #print "vvvvvvvvvvvv"
+    #print color
     clrName = "unknown"
     if (color < 10 or color > 170):
-      print('Red')
+    #  print('Red')
       clrName = "red"
              #res.append([cx,cy,'R'])
     elif(50 < color < 70):
-      print('Green')
+    #  print('Green')
       clrName = "green"
              #res.append([cx,cy,'G'])
     elif(20 < color < 40):
-      print('Yellow')
+    #  print('Yellow')
       clrName = "yellow"
              #res.append([cx,cy,'Y'])
-    elif(98 < color < 130):
-      print('Blue')
+    elif(98 < color < 145):
+    #  print('Blue')
       clrName = "blue"
              #res.append([cx,cy,'B'])
-    print "^^^^^^^^^"
+    #print "^^^^^^^^^"
+
     sub_card = img[y:y+h, x:x+w]
-    card_file_name = "cards/card_" + clrName + "_" + stateOrientation + ".jpg"
-   # print(card_file_name)
-    cv2.imshow('sub_cards',sub_card)
-    cv2.imwrite(card_file_name, sub_card)
-
-
+    dot_quadrant = 0
+    sub_card_y = len(sub_card)
+    sub_card_x = len(sub_card[0])
+    #print "sub sub sub"
+    #print sub_card_x, sub_card_y
+	
+    circle_x = -1
+    circle_y = -1
+	
     gray = cv2.cvtColor(sub_card,cv2.COLOR_BGR2GRAY)
     circles = find_circles(gray)
     if not circles is None:
-      for i in circles[0,:]:
-        print i
-        cv2.circle(sub_card,(i[0],i[1]),i[2],(0,255,0),1)  # draw the outer circle
+      #cnt = circles[0]
+      for cnt in circles[0,:]:
+      #print "circle #%d" %i
+        circle_x = cnt[0]
+        circle_y = cnt[1]
+        #print cnt[0],cnt[1]
+        #print "+++++++++++++++++++"
+        #print cnt[2]
+
+        cv2.circle(sub_card,(cnt[0],cnt[1]),cnt[2],(0,255,0),1)  # draw the outer circle
         #cv2.circle(cimg,(i[0],i[1]),2,(0,0,255),3)     # draw the center of the circle
 
       cv2.imshow('detected circles',sub_card)
       #cv2.drawContours(img,contours,-1,(0,255,0),-1)
-    
+    if not (circle_x == -1 and circle_y == -1):
+      if circle_x<sub_card_x/2 and circle_y<sub_card_y/2:
+        dot_quadrant=1
+      elif circle_x>sub_card_x/2 and circle_y<sub_card_y/2:
+        dot_quadrant=2
+      elif circle_x<sub_card_x/2 and circle_y>sub_card_y/2:
+	    dot_quadrant=3
+      elif circle_x>sub_card_x/2 and circle_y>sub_card_y/2:       
+        dot_quadrant=4
+
+
+    if (dot_quadrant == 0 or clrName == "unknown"):
+      print "no dot quad or orientation"
+      print circle_x, circle_y
+      print "color"
+      print color
+    else:
+      card_file_name = "cards/card_" + clrName + "_" + stateOrientation + "_" + str(dot_quadrant) + ".jpg"
+      print(card_file_name)
+      #cv2.imshow('sub_cards',sub_card)
+      cv2.imwrite(card_file_name, sub_card)
+
     # if len(approx)==5:
     #   print "pentagon"
     #   cv2.drawContours(img,[cnt],0,255,-1)
