@@ -1,5 +1,5 @@
 
-
+#import rect
 import cv2
 import time
 import numpy as np
@@ -77,10 +77,10 @@ def has_no_children (idx, hierarchy, cnt):
   else:
     h = hierarchy[0]
     if(h[idx][2] < 0):
-      print "hierarchy has no further children"
+      #print "hierarchy has no further children"
       return True
     else:
-      print "xx - hierarchy has children"
+      #print "xx - hierarchy has children"
       return False
 
 def keep(cnt):
@@ -100,6 +100,11 @@ def keep_card(cnt):
     print "\t Rejected because of shape: ("+str(x)+","+str(y)+","+str(w)+","+str(h)+")" + str(w/h)
     return False
   
+
+  if (w/h < 1.1):
+    print "\t Rejected because of width to height ratio: " + str(w/h)
+    return False
+
   # Test whether the box is too wide
   if(w > img_x/5):
     print "\t Rejected because of width: " + str(w)
@@ -171,8 +176,10 @@ def find_squares(img, image_area):
             if current_size < allowable_area:
               #x,y,w,h = cv2.boundingRect(cnt)
               if keep_card(cnt) and has_no_children(idx,hierarchy,cnt):
-                print('YES. keeping this contour')
-                squares.append(cnt)
+                #print('YES. keeping this contour')
+                squares = add_contour(cnt,squares)
+                print(len(squares))
+                #squares.append(cnt)
             # print("---------v")
             #          print(current_size)
             #          print(image_area)
@@ -188,17 +195,63 @@ def find_circles(img):
   return circles
 
 
-def overlaps(contour1, contour2):
+def add_contour(contour, contours):
+  for cont in contours:
+    print "checking for duplicates"
+    if (overlaps(cont,contour)):
+      print "duplicate"
+      return contours
+  
+  print "no match. appending a contour"
+  contours.append(contour)
+  return contours
+
+def overlaps(contour1, contour2):	
+	
   contourArray1 = np.array([contour1], dtype=np.int32)
   contourArray2 = np.array([contour2], dtype=np.int32)
   x1,y1,w1,h1 = cv2.boundingRect(contourArray1)
-  # x1right = x1+w1
-  #   x1left = x1
-  #   x1top = y1+h1
-  #   x1bottom = y1
-
+  x1right = x1+w1
+  x1left = x1
+  x1top = y1+h1
+  x1bottom = y1
   x2,y2,w2,h2 = cv2.boundingRect(contourArray2)
-  return (x1+w1 > x2 and x1 < x2+w2 and y1+h1 < y2 and y1 > y2+h2)
+  x2right = x2+w2
+  x2left = x2
+  x2top = y2+h2
+  x2bottom = y2
+
+  if (abs(x1+w1/2-x2-w2/2) >= (w1+w2)/2):
+    return False
+  
+  if (abs(y1+h1/2-y2-h2/2) >= (h1+h2)/2):
+    return False
+
+  return True
+	#   print "x1right:", x1right,",x1left:",x1left,",x1bottom:",x1bottom,",x1top:",x1top
+	#   print "x2right:", x2right,",x2left:",x2left,",x2bottom:",x2bottom,",x2top:",x2top
+	#   if (x1right > x2left or x1left < x2right or x1bottom > x2top or x1top < x2bottom):
+	# print "overlap"
+	# return True
+	#   else:
+	# return False
+	
+  #print (not separate)
+  #return (not separate)
+  #intersection = rect.intersect([r1,r2])
+  # if intersection is rect.empty:
+  #   return False
+  # else:
+  #   return True
+
+
+#   #print x1+w1 + " > " + x2 + " and " + x1 + " < " + x2+w2 + " and " + y1+h1 + " < " + y2 + " and " + y1 + " > " + y2+h2
+# 
+# # x1right: 599 ,x1left: 501 ,x1bottom: 142 ,x1top: 199
+# # x2right: 598 ,x2left: 502 ,x2bottom: 143 ,x2top: 198
+#   return 599 >= 598 and 501 <= 502 and 199 <= 198 and 
+#   return (x1right >= x2right and x1left <= x2left and x1top <= x2top and x1bottom >= x2bottom)
+#   return (x1right > x2left and x1left < x2right and x1top < x2bottom and x1bottom > x2top)
 
 #storage = cv.CreateMemStorage(0)
 delay = 5
@@ -239,20 +292,21 @@ while True:
     
     cx,cy = x+w/2, y+h/2
     color = hsv[cy,cx,0]
-    
+    print "vvvvvvvvvvvv"
+    print color
     if (color < 10 or color > 170):
-      print('R')
+      print('Red')
              #res.append([cx,cy,'R'])
     elif(50 < color < 70):
-      print('G')
+      print('Green')
              #res.append([cx,cy,'G'])
-    elif(20 < color <40):
-      print('Y')
+    elif(20 < color < 40):
+      print('Yellow')
              #res.append([cx,cy,'Y'])
-    elif(110 < color < 130):
-      print('B')
+    elif(98 < color < 130):
+      print('Blue')
              #res.append([cx,cy,'B'])
-    
+    print "^^^^^^^^^"
     sub_card = img[y:y+h, x:x+w]
     card_file_name = "cards/card_" + str(y) + ".jpg"
    # print(card_file_name)
@@ -260,7 +314,6 @@ while True:
     #cv2.imwrite(card_file_name, sub_card)
 
 
-    
     #peri = cv2.arcLength(elem,True)
     #approx = rectify(cv2.approxPolyDP(elem,0.02*peri,True))
 			    
