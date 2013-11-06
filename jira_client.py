@@ -69,7 +69,7 @@ class JiraProxy():
 		   }
 		}
 
-		return self._make_request('POST', '/issue/%s' % payload)
+		return self._make_request('POST', '/issue', payload)
 
 	def get_issue(self, issue_id):
 		return self._make_request('GET', '/issue/%s' % issue_id)
@@ -92,6 +92,19 @@ class JiraProxy():
 
 		return r.json()
 
+	def delete_attachment(self, attachment_id):
+		headers = {
+			"X-Atlassian-Token": "nocheck"
+		}
+
+		creds = self.credentials();
+		auth = (creds['username'], creds['password'])
+
+		url = self.base_url + '/attachment/' + attachment_id
+		r = requests.delete(url, headers=headers, auth=auth)
+
+		return r.json()
+
 
 
 if __name__ == '__main__':
@@ -102,6 +115,7 @@ if __name__ == '__main__':
 	jp = JiraProxy()
 	# task = jp.create_issue(ISSUE_TYPES['TASK'], summary, desc, "selfma")
 	# print task
-	# print jp.get_issue(task['id'])
+	print jp.get_issue('TESLA-370')
 
-	print jp.add_attachment('345814', 'README.md')
+	# print jp.add_attachment('345814', 'README.md')
+	# print jp.delete_attachment('146740')
