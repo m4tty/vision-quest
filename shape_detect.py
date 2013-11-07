@@ -7,6 +7,10 @@ import cv2.cv as cv
 import urllib2
 from math import sqrt
 
+from jira_client import JiraProxy
+from jira_client import ISSUE_TYPES as itypes
+from jira_client import USERS as jirausers
+import os
 
 def diffImg(t0, t1, t2):
   d1 = cv2.absdiff(t2, t1)
@@ -69,7 +73,7 @@ def connected(cnt):
   return abs(first[0] - last[0]) <= 1 and abs(first[1] - last[1]) <= 1
 
 def has_no_children (idx, hierarchy, cnt):
-  print idx
+  #print idx
   #print hierarchy
   if hierarchy is None:
     print "hierarchy is None"
@@ -97,30 +101,30 @@ def keep_card(cnt):
   # Test it's shape - if it's too oblong or tall it's
   # probably not a real character
   if(w/h < 0.1 or w/h > 10):
-    print "\t Rejected because of shape: ("+str(x)+","+str(y)+","+str(w)+","+str(h)+")" + str(w/h)
+    #print "\t Rejected because of shape: ("+str(x)+","+str(y)+","+str(w)+","+str(h)+")" + str(w/h)
     return False
   
 
   if (w/h < 1.1):
-    print "\t Rejected because of width to height ratio: " + str(w/h)
+    #print "\t Rejected because of width to height ratio: " + str(w/h)
     return False
 
   # Test whether the box is too wide
   if(w > img_x/5):
-    print "\t Rejected because of width: " + str(w)
+    #print "\t Rejected because of width: " + str(w)
     return False
   
   # Test whether the box is too tall
   if(h > img_y/5):
-    print "\t Rejected because of height: " + str(h)
+    #print "\t Rejected because of height: " + str(h)
     return False
   
   if(h < 15):
-    print "\t Rejected because of low height: " + str(h)
+    #print "\t Rejected because of low height: " + str(h)
     return False
   
   if(w < 20):
-    print "\t Rejected because of low width: " + str(h)
+    #print "\t Rejected because of low width: " + str(h)
     return False
   
   return True
@@ -138,8 +142,8 @@ def find_squares(img, image_area):
       else:
         retval, bin = cv2.threshold(gray, thrs, 255, cv2.THRESH_BINARY)
       contours, hierarchy = cv2.findContours(bin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-      print('=========')
-      print(len(contours))    
+      #print('=========')
+      #print(len(contours))    
       for idx,cnt in enumerate(contours):
         cnt_len = cv2.arcLength(cnt, True)
         cnt = cv2.approxPolyDP(cnt, 0.02*cnt_len, True)
@@ -151,7 +155,7 @@ def find_squares(img, image_area):
             if current_size < allowable_area:
               if keep_card(cnt) and has_no_children(idx,hierarchy,cnt):
                 squares = add_contour(cnt,squares)
-                print(len(squares))
+                #print(len(squares))
   return squares
 
 def find_triangles(img, image_area):
@@ -185,10 +189,10 @@ def find_triangles(img, image_area):
 def find_circles(img):
   img = cv2.medianBlur(img,5)
   circles = cv2.HoughCircles(img,cv2.cv.CV_HOUGH_GRADIENT,1,10,param1=100,param2=30,minRadius=5,maxRadius=20)
-  if circles is None:
-    print 'no circles'
-  else:
-    print circles
+  # if circles is None:
+  #   print 'no circles'
+  # else:
+  #   print circles
   #circles = np.uint16(np.around(circles))
   return circles
 
@@ -215,6 +219,17 @@ def overlaps(contour1, contour2):
   if (abs(y1+h1/2-y2-h2/2) >= (h1+h2)/2):
     return False
   return True
+
+def getPersonByColor(color):
+  if color == "yellow":
+    return jirausers["rayland"]
+  if color == "red":
+    return jirausers["matt"]
+  if color == "green":
+    return jirausers["kelly"]
+  return jirausers["matt"]
+
+
 
 #storage = cv.CreateMemStorage(0)
 delay = 0
@@ -337,11 +352,36 @@ while True:
       print "color"
       print color
     else:
+      
       card_file_name = "cards/card_" + clrName + "_" + stateOrientation + "_" + str(dot_quadrant) + ".jpg"
+      card_jira_meta_file = "cards/card_" + clrName + "_" + stateOrientation + "_" + str(dot_quadrant) + ".json"
       print(card_file_name)
       #cv2.imshow('sub_cards',sub_card)
-      cv2.imwrite(card_file_name, sub_card)
+      jp = JiraProxy()
 
+      if os.path.exists(card_file_name):
+        print "file exists ", card_file_name
+      else:
+        print "New card detected... adding to JIRA"
+        print "writing file ", card_file_name
+        print "create task in JIRA"
+        cv2.imwrite(card_file_name, sub_card)
+        person = getPersonByColor(clrName)
+        task = jp.create_issue(3,"Hackathon Task #" + str(dot_quadrant), "Hackathon Task #" + str(dot_quadrant) + " description.",person)
+        print "vvvvvvvvvvvvvvv"
+        if not task.has_key('status_code'):
+          print task
+          taskid = task["id"]
+          print "attaching image... "
+          attachment_response = jp.add_attachment(taskid,card_file_name)
+          print attachment_response
+          print "done uploading attachment"
+          print taskid
+        else:
+          print "Bad things with sending to JIRA"
+          print task
+
+        #save a "meta" file with task id 
     # if len(approx)==5:
     #   print "pentagon"
     #   cv2.drawContours(img,[cnt],0,255,-1)
